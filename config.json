@@ -5,4 +5,5 @@
   "exclude_documentation_c2": false,
   "exclude_agent_icons": false,
   "remote_images": {
-    "http": "ghcr.io/v1stra/http:late
+    "http": "ghcr.io/v1stra/http:v1.0.0"
+  }
