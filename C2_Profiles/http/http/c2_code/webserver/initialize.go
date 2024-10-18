@@ -1,12 +1,14 @@
 package webserver
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -15,6 +17,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strings"
 	"time"
 
 	mythicConfig "github.com/MythicMeta/MythicContainer/config"
@@ -226,6 +229,44 @@ func generateServeFile(configInstance instanceConfig, fileUUID string, proxyForF
 	}
 }
 
+type Response struct {
+	ID int `json:"id"`
+	M  struct {
+		Nonce string `json:"nonce"`
+	} `json:"__m"`
+}
+
+func doTransform(req *http.Request) {
+
+	b, err := io.ReadAll(req.Body)
+
+	if err != nil {
+		return
+	}
+	// Parse the JSON
+	var response Response
+	json.Unmarshal(b, &response)
+
+	nonce := response.M.Nonce
+
+	fmt.Printf("DEBUG: %s\n", nonce)
+	req.Body = io.NopCloser(bytes.NewBuffer([]byte(nonce)))
+	req.ContentLength = int64(len([]byte(nonce)))
+}
+
+func doResponseTransform(resp *http.Response) error {
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	s := fmt.Sprintf("{ \"status\": \"ok\", \"__m\": \"%s\" }", b)
+	fmt.Printf("%s\n", s)
+	resp.Header["Content-Length"] = []string{fmt.Sprintf("%d", len(s))}
+	resp.Body = io.NopCloser(strings.NewReader(s))
+	return nil
+}
+
+/* Translate GET Request from Agent */
 func getRequest(configInstance instanceConfig, proxy *httputil.ReverseProxy) gin.HandlerFunc {
 	if configInstance.Debug {
 		logging.LogInfo("debug route", "host", mythicConfig.MythicConfig.MythicServerHost, "path", "/agent_message")
@@ -237,6 +278,8 @@ func getRequest(configInstance instanceConfig, proxy *httputil.ReverseProxy) gin
 		if c.Request.Header.Get("X-Forwarded-For") == "" {
 			c.Request.Header.Set("X-Forwarded-For", c.ClientIP())
 		}
+		doTransform(c.Request)
+		proxy.ModifyResponse = doResponseTransform
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
@@ -252,6 +295,8 @@ func postRequest(configInstance instanceConfig, proxy *httputil.ReverseProxy) gi
 		if c.Request.Header.Get("X-Forwarded-For") == "" {
 			c.Request.Header.Set("X-Forwarded-For", c.ClientIP())
 		}
+		doTransform(c.Request)
+		proxy.ModifyResponse = doResponseTransform
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
