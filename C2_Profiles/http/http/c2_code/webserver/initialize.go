@@ -259,7 +259,6 @@ func doResponseTransform(resp *http.Response) error {
 		return err
 	}
 	s := fmt.Sprintf("{ \"status\": \"ok\", \"__m\": \"%s\" }", b)
-	fmt.Printf("%s\n", s)
 	resp.Header["Content-Length"] = []string{fmt.Sprintf("%d", len(s))}
 	resp.Body = io.NopCloser(strings.NewReader(s))
 	return nil
