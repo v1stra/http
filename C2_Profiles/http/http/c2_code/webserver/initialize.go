@@ -249,7 +249,6 @@ func doTransform(req *http.Request) {
 
 	nonce := response.M.Nonce
 
-	fmt.Printf("DEBUG: %s\n", nonce)
 	req.Body = io.NopCloser(bytes.NewBuffer([]byte(nonce)))
 	req.ContentLength = int64(len([]byte(nonce)))
 }
